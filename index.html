@@ -143,14 +143,34 @@ const CURRENCIES = {
   PYG: { flag: "🇵🇾", name: "Guaraní paraguayen", decimals: 0 },
   CHF: { flag: "🇨🇭", name: "Franc suisse", decimals: 2 },
 };
-const API = "https://open.er-api.com/v6/latest/EUR";
-const CACHE_KEY = "rates-v2";
+const CACHE_KEY = "rates-v3";
+const REFRESH_MS = 60 * 60 * 1000; // actualisation automatique toutes les heures
+const TIMEOUT_MS = 8000;
+
+// Sources essayées dans l'ordre ; chacune renvoie { rates, updatedAt }
+// avec rates = valeur de 1 EUR dans chaque devise.
+const SOURCES = [
+  {
+    name: "Coinbase",
+    url: "https://api.coinbase.com/v2/exchange-rates?currency=EUR",
+    parse: j => ({ rates: pick(j.data.rates), updatedAt: Date.now() }), // pas d'horodatage fourni
+  },
+  {
+    name: "open.er-api.com",
+    url: "https://open.er-api.com/v6/latest/EUR",
+    parse: j => {
+      if (j.result !== "success") throw new Error("réponse invalide");
+      return { rates: pick(j.rates), updatedAt: j.time_last_update_unix * 1000 };
+    },
+  },
+];
 const PREF_KEY = "source-cur";
 const MAX_INT_DIGITS = 12;
 
 // rates : valeur de 1 EUR dans chaque devise
 let rates = null;
 let updatedAt = null;
+let sourceName = null;
 let source = load(PREF_KEY) || "EUR";
 // Montant saisi, sous forme de texte : chiffres + éventuelle virgule
 let amount = "1";
@@ -228,33 +248,73 @@ function render() {
   }).join("");
 }
 
-function showStatus() {
-  if (!updatedAt) return;
-  const d = new Date(updatedAt);
-  $status.className = "";
-  $status.textContent = "Taux du " + d.toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" });
+// Extrait nos devises d'une table de taux (valeurs parfois en texte) et vérifie qu'elles sont toutes là
+function pick(table) {
+  const r = { EUR: 1 };
+  for (const cur of Object.keys(CURRENCIES)) {
+    if (cur === "EUR") continue;
+    const v = Number(table[cur]);
+    if (!(v > 0)) throw new Error("taux manquant : " + cur);
+    r[cur] = v;
+  }
+  return r;
 }
 
+function showStatus(suffix = "") {
+  if (!updatedAt) return;
+  const d = new Date(updatedAt);
+  const sameDay = d.toDateString() === new Date().toDateString();
+  const when = sameDay
+    ? "aujourd'hui " + d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
+    : d.toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" });
+  $status.className = "";
+  $status.textContent = `Taux ${sourceName ? sourceName + " · " : ""}${when}${suffix}`;
+}
+
+async function fetchJson(url) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { cache: "no-store", signal: ctrl.signal });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    return await res.json();
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+let fetching = false;
+let lastFetch = 0;
+
 async function fetchRates() {
+  if (fetching) return;
+  fetching = true;
   $status.className = "";
   $status.textContent = "Actualisation…";
   try {
-    const res = await fetch(API, { cache: "no-store" });
-    const j = await res.json();
-    if (j.result !== "success") throw new Error("réponse invalide");
-    rates = { EUR: 1, USD: j.rates.USD, PYG: j.rates.PYG, CHF: j.rates.CHF };
-    updatedAt = j.time_last_update_unix * 1000;
-    save(CACHE_KEY, JSON.stringify({ rates, updatedAt }));
-    render();
-    showStatus();
-  } catch (e) {
+    for (const src of SOURCES) {
+      try {
+        const r = src.parse(await fetchJson(src.url));
+        rates = r.rates;
+        updatedAt = r.updatedAt;
+        sourceName = src.name;
+        lastFetch = Date.now();
+        save(CACHE_KEY, JSON.stringify({ rates, updatedAt, sourceName }));
+        render();
+        showStatus();
+        return;
+      } catch (e) {
+        console.warn(src.name, "indisponible :", e);
+      }
+    }
     if (rates) {
-      showStatus();
-      $status.textContent += " — hors ligne";
+      showStatus(" — hors ligne");
     } else {
       $status.className = "err";
       $status.textContent = "Impossible de charger les taux. Vérifiez la connexion.";
     }
+  } finally {
+    fetching = false;
   }
 }
 
@@ -277,10 +337,17 @@ document.getElementById("refresh").addEventListener("click", fetchRates);
 // Démarrage : afficher le cache immédiatement, puis actualiser
 try {
   const cached = JSON.parse(load(CACHE_KEY));
-  if (cached) { rates = cached.rates; updatedAt = cached.updatedAt; showStatus(); }
+  if (cached) { rates = cached.rates; updatedAt = cached.updatedAt; sourceName = cached.sourceName; showStatus(); }
 } catch {}
 render();
 fetchRates();
+
+// Toutes les heures tant que l'app est affichée…
+setInterval(() => { if (!document.hidden) fetchRates(); }, REFRESH_MS);
+// …et à chaque retour dans l'app (Android la garde souvent en mémoire au lieu de la relancer)
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && Date.now() - lastFetch > 60 * 1000) fetchRates();
+});
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
 </script>
