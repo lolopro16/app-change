@@ -131,7 +131,7 @@
     <button type="button" data-k="1">1</button>
     <button type="button" data-k="2">2</button>
     <button type="button" data-k="3">3</button>
-    <button type="button" data-k="," class="fn">,</button>
+    <button type="button" data-k="." class="fn">.</button>
     <button type="button" data-k="0">0</button>
     <button type="button" data-k="del" class="fn" aria-label="Effacer">⌫</button>
   </div>
@@ -172,7 +172,7 @@ let rates = null;
 let updatedAt = null;
 let sourceName = null;
 let source = load(PREF_KEY) || "EUR";
-// Montant saisi, sous forme de texte : chiffres + éventuelle virgule
+// Montant saisi, sous forme de texte : chiffres + éventuel point décimal
 let amount = "1";
 
 const $amount = document.getElementById("amount");
@@ -184,34 +184,39 @@ const $seg = document.getElementById("seg");
 function load(key) { try { return localStorage.getItem(key); } catch { return null; } }
 function save(key, v) { try { localStorage.setItem(key, v); } catch {} }
 
+// Format suisse : 1'500'000.00 (apostrophe pour les milliers, point décimal)
+function swiss(n, opts) {
+  return new Intl.NumberFormat("en-US", opts).format(n).replace(/,/g, "'");
+}
+
 function fmt(n, cur) {
   const d = CURRENCIES[cur].decimals;
-  return new Intl.NumberFormat("fr-FR", { minimumFractionDigits: d, maximumFractionDigits: d }).format(n);
+  return swiss(n, { minimumFractionDigits: d, maximumFractionDigits: d });
 }
 
 // Taux unitaire lisible : 6 690 / 1,1344 / 0,0001495
 function fmtRate(n) {
   const opts = n >= 100 ? { maximumFractionDigits: 0 } : { maximumSignificantDigits: 5 };
-  return new Intl.NumberFormat("fr-FR", opts).format(n);
+  return swiss(n, opts);
 }
 
 function amountValue() {
-  const n = parseFloat(amount.replace(",", "."));
+  const n = parseFloat(amount);
   return Number.isFinite(n) ? n : 0;
 }
 
 function amountDisplay() {
-  const [int, dec] = amount.split(",");
-  const grouped = new Intl.NumberFormat("fr-FR").format(Number(int || "0"));
-  return dec === undefined ? grouped : grouped + "," + dec;
+  const [int, dec] = amount.split(".");
+  const grouped = swiss(Number(int || "0"));
+  return dec === undefined ? grouped : grouped + "." + dec;
 }
 
 function press(k) {
-  const [int, dec] = amount.split(",");
+  const [int, dec] = amount.split(".");
   if (k === "C") amount = "0";
   else if (k === "del") amount = amount.length > 1 ? amount.slice(0, -1) : "0";
-  else if (k === ",") {
-    if (dec === undefined && CURRENCIES[source].decimals > 0) amount += ",";
+  else if (k === ".") {
+    if (dec === undefined && CURRENCIES[source].decimals > 0) amount += ".";
   } else if (dec !== undefined) {
     if (dec.length < CURRENCIES[source].decimals) amount += k;
   } else if (int.length < MAX_INT_DIGITS) {
@@ -224,7 +229,7 @@ function setSource(cur) {
   source = cur;
   save(PREF_KEY, cur);
   // Le guaraní n'a pas de décimales
-  if (CURRENCIES[cur].decimals === 0) amount = amount.split(",")[0] || "0";
+  if (CURRENCIES[cur].decimals === 0) amount = amount.split(".")[0] || "0";
   render();
 }
 
