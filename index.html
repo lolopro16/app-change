@@ -251,7 +251,7 @@ function rateLabel(a, b) {
 
 // Petit retour haptique sur les touches (ignoré si le navigateur ne le permet pas)
 function buzz() {
-  try { navigator.vibrate && navigator.vibrate(12); } catch {}
+  try { navigator.vibrate && navigator.vibrate(5); } catch {}
 }
 
 function render() {
