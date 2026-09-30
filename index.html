@@ -46,7 +46,7 @@
     color: var(--text); font-size: 2.4rem; font-weight: 600;
     padding: 6px 0 12px; font-variant-numeric: tabular-nums;
   }
-  .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
   .seg button {
     background: #141a1f; color: var(--muted); border: 1px solid #2c353e;
     border-radius: 12px; padding: 10px 0; font-size: 1rem; font-weight: 600;
@@ -86,6 +86,7 @@
       <button type="button" data-cur="EUR">EUR</button>
       <button type="button" data-cur="USD">USD</button>
       <button type="button" data-cur="PYG">PYG</button>
+      <button type="button" data-cur="CHF">CHF</button>
     </div>
   </div>
 
@@ -98,9 +99,10 @@ const CURRENCIES = {
   EUR: { flag: "🇪🇺", name: "Euro", decimals: 2 },
   USD: { flag: "🇺🇸", name: "Dollar américain", decimals: 2 },
   PYG: { flag: "🇵🇾", name: "Guaraní paraguayen", decimals: 0 },
+  CHF: { flag: "🇨🇭", name: "Franc suisse", decimals: 2 },
 };
 const API = "https://open.er-api.com/v6/latest/EUR";
-const CACHE_KEY = "rates-v1";
+const CACHE_KEY = "rates-v2";
 const PREF_KEY = "source-cur";
 
 // rates : valeur de 1 EUR dans chaque devise
@@ -147,7 +149,9 @@ function render() {
   $rates.innerHTML =
     `1 EUR = ${eurUsd.toFixed(4).replace(".", ",")} USD<br>` +
     `1 EUR = ${fmt(eurPyg, "PYG")} PYG<br>` +
-    `1 USD = ${fmt(eurPyg / eurUsd, "PYG")} PYG`;
+    `1 USD = ${fmt(eurPyg / eurUsd, "PYG")} PYG<br>` +
+    `1 CHF = ${fmt(eurPyg / rates.CHF, "PYG")} PYG<br>` +
+    `1 EUR = ${rates.CHF.toFixed(4).replace(".", ",")} CHF`;
 }
 
 function showStatus() {
@@ -164,7 +168,7 @@ async function fetchRates() {
     const res = await fetch(API, { cache: "no-store" });
     const j = await res.json();
     if (j.result !== "success") throw new Error("réponse invalide");
-    rates = { EUR: 1, USD: j.rates.USD, PYG: j.rates.PYG };
+    rates = { EUR: 1, USD: j.rates.USD, PYG: j.rates.PYG, CHF: j.rates.CHF };
     updatedAt = j.time_last_update_unix * 1000;
     save(CACHE_KEY, JSON.stringify({ rates, updatedAt }));
     render();
