@@ -38,11 +38,14 @@
   h1 { font-size: 1.2rem; margin: 0; font-weight: 600; }
   #status { color: var(--muted); font-size: .75rem; }
   #status.err { color: var(--error); }
-  #refresh {
+  .actions { display: flex; gap: 6px; }
+  .pill {
     background: none; border: 1px solid #2c353e;
     border-radius: 999px; padding: 6px 12px; font-size: .85rem;
   }
-  #refresh:active { background: var(--card); }
+  .pill:active { background: var(--card); }
+  #cents { color: var(--muted); }
+  #cents.on { color: var(--accent); border-color: var(--accent); }
 
   /* Taux de change */
   .rows { display: flex; flex-direction: column; gap: 6px; }
@@ -102,7 +105,10 @@
       <h1>Change</h1>
       <div id="status">Chargement des taux…</div>
     </div>
-    <button id="refresh" type="button">↻ Actualiser</button>
+    <div class="actions">
+      <button id="cents" class="pill" type="button" aria-label="Afficher les centimes">.00</button>
+      <button id="refresh" class="pill" type="button">↻ Actualiser</button>
+    </div>
   </header>
 
   <div class="rows" id="rows"></div>
@@ -165,6 +171,7 @@ const SOURCES = [
   },
 ];
 const PREF_KEY = "source-cur";
+const CENTS_KEY = "show-cents";
 const MAX_INT_DIGITS = 12;
 
 // rates : valeur de 1 EUR dans chaque devise
@@ -172,6 +179,8 @@ let rates = null;
 let updatedAt = null;
 let sourceName = null;
 let source = load(PREF_KEY) || "EUR";
+// Centimes masqués par défaut ; le bouton « .00 » les affiche
+let showCents = load(CENTS_KEY) === "1";
 // Montant saisi, sous forme de texte : chiffres + éventuel point décimal
 let amount = "1";
 
@@ -190,7 +199,7 @@ function swiss(n, opts) {
 }
 
 function fmt(n, cur) {
-  const d = CURRENCIES[cur].decimals;
+  const d = showCents ? CURRENCIES[cur].decimals : 0;
   return swiss(n, { minimumFractionDigits: d, maximumFractionDigits: d });
 }
 
@@ -234,6 +243,7 @@ function setSource(cur) {
 }
 
 function render() {
+  document.getElementById("cents").classList.toggle("on", showCents);
   $seg.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.cur === source));
   $amount.firstElementChild.textContent = amountDisplay();
   $amountCur.textContent = source;
@@ -337,6 +347,11 @@ $rows.addEventListener("click", e => {
   if (cur) setSource(cur);
 });
 document.getElementById("clear").addEventListener("click", () => press("C"));
+document.getElementById("cents").addEventListener("click", () => {
+  showCents = !showCents;
+  save(CENTS_KEY, showCents ? "1" : "0");
+  render();
+});
 document.getElementById("refresh").addEventListener("click", fetchRates);
 
 // Démarrage : afficher le cache immédiatement, puis actualiser
