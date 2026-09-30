@@ -13,6 +13,8 @@
     --bg: #101418;
     --card: #1b2127;
     --card-active: #243039;
+    --key: #1b2127;
+    --key-press: #2a333c;
     --text: #eef2f5;
     --muted: #8b98a5;
     --accent: #4fc3a1;
@@ -26,62 +28,91 @@
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     display: flex;
     flex-direction: column;
-    padding: calc(env(safe-area-inset-top) + 20px) 16px calc(env(safe-area-inset-bottom) + 16px);
+    gap: 10px;
+    padding: calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 12px);
+    user-select: none;
   }
-  header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-  h1 { font-size: 1.3rem; margin: 0; font-weight: 600; }
+  button { font: inherit; color: inherit; }
+
+  header { display: flex; justify-content: space-between; align-items: center; }
+  h1 { font-size: 1.2rem; margin: 0; font-weight: 600; }
+  #status { color: var(--muted); font-size: .75rem; }
+  #status.err { color: var(--error); }
   #refresh {
-    background: none; border: 1px solid #2c353e; color: var(--text);
-    border-radius: 999px; padding: 8px 14px; font-size: .9rem;
+    background: none; border: 1px solid #2c353e;
+    border-radius: 999px; padding: 6px 12px; font-size: .85rem;
   }
   #refresh:active { background: var(--card); }
 
-  .input-wrap {
-    background: var(--card); border-radius: 18px; padding: 16px;
-    margin-bottom: 16px;
-  }
-  label { color: var(--muted); font-size: .85rem; }
-  #amount {
-    width: 100%; background: none; border: none; outline: none;
-    color: var(--text); font-size: 2.4rem; font-weight: 600;
-    padding: 6px 0 12px; font-variant-numeric: tabular-nums;
-  }
-  .seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-  .seg button {
-    background: #141a1f; color: var(--muted); border: 1px solid #2c353e;
-    border-radius: 12px; padding: 10px 0; font-size: 1rem; font-weight: 600;
-  }
-  .seg button.on { background: var(--accent); color: #0b1a15; border-color: var(--accent); }
-
-  .rows { display: flex; flex-direction: column; gap: 10px; }
+  /* Taux de change */
+  .rows { display: flex; flex-direction: column; gap: 6px; }
   .row {
-    display: flex; align-items: center; gap: 14px;
-    background: var(--card); border-radius: 16px; padding: 16px;
+    display: flex; align-items: center; gap: 12px;
+    background: var(--card); border-radius: 14px; padding: 10px 14px;
+    border: 1px solid transparent; width: 100%; text-align: left;
   }
-  .row.src { background: var(--card-active); outline: 1px solid var(--accent); }
-  .flag { font-size: 1.8rem; line-height: 1; }
+  .row.src { background: var(--card-active); border-color: var(--accent); }
+  .flag { font-size: 1.5rem; line-height: 1; }
   .meta { flex: 1; min-width: 0; }
-  .code { font-weight: 600; }
-  .name { color: var(--muted); font-size: .8rem; }
+  .code { font-weight: 600; font-size: .95rem; }
+  .sub { color: var(--muted); font-size: .75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .val {
-    font-size: 1.35rem; font-weight: 600; text-align: right;
+    font-size: 1.25rem; font-weight: 600; text-align: right;
     font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
   }
 
-  .rates { margin-top: 18px; color: var(--muted); font-size: .85rem; line-height: 1.6; }
-  #status { margin-top: auto; padding-top: 16px; color: var(--muted); font-size: .8rem; text-align: center; }
-  #status.err { color: var(--error); }
+  /* Saisie */
+  .input-wrap { background: var(--card); border-radius: 16px; padding: 10px 14px 12px; }
+  .amount-line { display: flex; align-items: baseline; gap: 8px; }
+  #amount {
+    flex: 1; min-width: 0; text-align: right;
+    font-size: 2.2rem; font-weight: 600; font-variant-numeric: tabular-nums;
+    white-space: nowrap; overflow: hidden; direction: rtl;
+  }
+  #amount span { direction: ltr; unicode-bidi: isolate; }
+  #clear {
+    align-self: center; background: #141a1f; border: 1px solid #2c353e;
+    border-radius: 999px; width: 40px; height: 40px; color: var(--accent); font-weight: 600;
+  }
+  #clear:active { background: var(--key-press); }
+  #amount-cur { color: var(--accent); font-weight: 600; font-size: 1.1rem; }
+  .seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
+  .seg button {
+    background: #141a1f; color: var(--muted); border: 1px solid #2c353e;
+    border-radius: 10px; padding: 8px 0; font-size: .95rem; font-weight: 600;
+  }
+  .seg button.on { background: var(--accent); color: #0b1a15; border-color: var(--accent); }
+
+  /* Pavé numérique */
+  .keypad {
+    flex: 1; min-height: 220px;
+    display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 1fr; gap: 8px;
+  }
+  .keypad button {
+    background: var(--key); border: none; border-radius: 14px;
+    font-size: 1.6rem; font-weight: 500;
+  }
+  .keypad button:active { background: var(--key-press); }
+  .keypad .fn { color: var(--accent); font-size: 1.3rem; }
 </style>
 </head>
 <body>
   <header>
-    <h1>Change</h1>
+    <div>
+      <h1>Change</h1>
+      <div id="status">Chargement des taux…</div>
+    </div>
     <button id="refresh" type="button">↻ Actualiser</button>
   </header>
 
+  <div class="rows" id="rows"></div>
+
   <div class="input-wrap">
-    <label for="amount">Montant</label>
-    <input id="amount" type="text" inputmode="decimal" autocomplete="off" value="1">
+    <div class="amount-line">
+      <button type="button" id="clear" aria-label="Remettre à zéro">C</button>
+      <div id="amount"><span>1</span></div>
+      <div id="amount-cur">EUR</div>
+    </div>
     <div class="seg" id="seg">
       <button type="button" data-cur="EUR">EUR</button>
       <button type="button" data-cur="USD">USD</button>
@@ -90,9 +121,20 @@
     </div>
   </div>
 
-  <div class="rows" id="rows"></div>
-  <div class="rates" id="rates"></div>
-  <div id="status">Chargement des taux…</div>
+  <div class="keypad" id="keypad">
+    <button type="button" data-k="7">7</button>
+    <button type="button" data-k="8">8</button>
+    <button type="button" data-k="9">9</button>
+    <button type="button" data-k="4">4</button>
+    <button type="button" data-k="5">5</button>
+    <button type="button" data-k="6">6</button>
+    <button type="button" data-k="1">1</button>
+    <button type="button" data-k="2">2</button>
+    <button type="button" data-k="3">3</button>
+    <button type="button" data-k="," class="fn">,</button>
+    <button type="button" data-k="0">0</button>
+    <button type="button" data-k="del" class="fn" aria-label="Effacer">⌫</button>
+  </div>
 
 <script>
 const CURRENCIES = {
@@ -104,15 +146,18 @@ const CURRENCIES = {
 const API = "https://open.er-api.com/v6/latest/EUR";
 const CACHE_KEY = "rates-v2";
 const PREF_KEY = "source-cur";
+const MAX_INT_DIGITS = 12;
 
 // rates : valeur de 1 EUR dans chaque devise
 let rates = null;
 let updatedAt = null;
 let source = load(PREF_KEY) || "EUR";
+// Montant saisi, sous forme de texte : chiffres + éventuelle virgule
+let amount = "1";
 
 const $amount = document.getElementById("amount");
+const $amountCur = document.getElementById("amount-cur");
 const $rows = document.getElementById("rows");
-const $rates = document.getElementById("rates");
 const $status = document.getElementById("status");
 const $seg = document.getElementById("seg");
 
@@ -124,34 +169,63 @@ function fmt(n, cur) {
   return new Intl.NumberFormat("fr-FR", { minimumFractionDigits: d, maximumFractionDigits: d }).format(n);
 }
 
-function parseAmount() {
-  const raw = $amount.value.replace(/\s/g, "").replace(",", ".");
-  const n = parseFloat(raw);
+// Taux unitaire lisible : 6 690 / 1,1344 / 0,0001495
+function fmtRate(n) {
+  const opts = n >= 100 ? { maximumFractionDigits: 0 } : { maximumSignificantDigits: 5 };
+  return new Intl.NumberFormat("fr-FR", opts).format(n);
+}
+
+function amountValue() {
+  const n = parseFloat(amount.replace(",", "."));
   return Number.isFinite(n) ? n : 0;
+}
+
+function amountDisplay() {
+  const [int, dec] = amount.split(",");
+  const grouped = new Intl.NumberFormat("fr-FR").format(Number(int || "0"));
+  return dec === undefined ? grouped : grouped + "," + dec;
+}
+
+function press(k) {
+  const [int, dec] = amount.split(",");
+  if (k === "C") amount = "0";
+  else if (k === "del") amount = amount.length > 1 ? amount.slice(0, -1) : "0";
+  else if (k === ",") {
+    if (dec === undefined && CURRENCIES[source].decimals > 0) amount += ",";
+  } else if (dec !== undefined) {
+    if (dec.length < CURRENCIES[source].decimals) amount += k;
+  } else if (int.length < MAX_INT_DIGITS) {
+    amount = amount === "0" ? k : amount + k;
+  }
+  render();
+}
+
+function setSource(cur) {
+  source = cur;
+  save(PREF_KEY, cur);
+  // Le guaraní n'a pas de décimales
+  if (CURRENCIES[cur].decimals === 0) amount = amount.split(",")[0] || "0";
+  render();
 }
 
 function render() {
   $seg.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.cur === source));
-  if (!rates) { $rows.innerHTML = ""; $rates.textContent = ""; return; }
+  $amount.firstElementChild.textContent = amountDisplay();
+  $amountCur.textContent = source;
+  if (!rates) { $rows.innerHTML = ""; return; }
 
-  const inEur = parseAmount() / rates[source];
+  const inEur = amountValue() / rates[source];
   $rows.innerHTML = Object.keys(CURRENCIES).map(cur => {
     const c = CURRENCIES[cur];
-    return `<div class="row${cur === source ? " src" : ""}">
+    const sub = cur === source
+      ? c.name
+      : `1 ${source} = ${fmtRate(rates[cur] / rates[source])} ${cur}`;
+    return `<button type="button" class="row${cur === source ? " src" : ""}" data-cur="${cur}">
       <span class="flag">${c.flag}</span>
-      <div class="meta"><div class="code">${cur}</div><div class="name">${c.name}</div></div>
+      <div class="meta"><div class="code">${cur}</div><div class="sub">${sub}</div></div>
       <div class="val">${fmt(inEur * rates[cur], cur)}</div>
-    </div>`;
+    </button>`;
   }).join("");
-
-  const eurUsd = rates.USD;
-  const eurPyg = rates.PYG;
-  $rates.innerHTML =
-    `1 EUR = ${eurUsd.toFixed(4).replace(".", ",")} USD<br>` +
-    `1 EUR = ${fmt(eurPyg, "PYG")} PYG<br>` +
-    `1 USD = ${fmt(eurPyg / eurUsd, "PYG")} PYG<br>` +
-    `1 CHF = ${fmt(eurPyg / rates.CHF, "PYG")} PYG<br>` +
-    `1 EUR = ${rates.CHF.toFixed(4).replace(".", ",")} CHF`;
 }
 
 function showStatus() {
@@ -184,15 +258,20 @@ async function fetchRates() {
   }
 }
 
-$amount.addEventListener("input", render);
-$amount.addEventListener("focus", () => $amount.select());
+document.getElementById("keypad").addEventListener("click", e => {
+  const k = e.target.closest("button")?.dataset.k;
+  if (k) press(k);
+});
 $seg.addEventListener("click", e => {
   const cur = e.target.dataset && e.target.dataset.cur;
-  if (!cur) return;
-  source = cur;
-  save(PREF_KEY, cur);
-  render();
+  if (cur) setSource(cur);
 });
+// Toucher une ligne la prend comme devise de départ
+$rows.addEventListener("click", e => {
+  const cur = e.target.closest(".row")?.dataset.cur;
+  if (cur) setSource(cur);
+});
+document.getElementById("clear").addEventListener("click", () => press("C"));
 document.getElementById("refresh").addEventListener("click", fetchRates);
 
 // Démarrage : afficher le cache immédiatement, puis actualiser
