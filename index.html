@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#101418">
+<title>Change</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root {
+    --bg: #101418;
+    --card: #1b2127;
+    --card-active: #243039;
+    --text: #eef2f5;
+    --muted: #8b98a5;
+    --accent: #4fc3a1;
+    --error: #ff7a7a;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    padding: calc(env(safe-area-inset-top) + 20px) 16px calc(env(safe-area-inset-bottom) + 16px);
+  }
+  header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  h1 { font-size: 1.3rem; margin: 0; font-weight: 600; }
+  #refresh {
+    background: none; border: 1px solid #2c353e; color: var(--text);
+    border-radius: 999px; padding: 8px 14px; font-size: .9rem;
+  }
+  #refresh:active { background: var(--card); }
+
+  .input-wrap {
+    background: var(--card); border-radius: 18px; padding: 16px;
+    margin-bottom: 16px;
+  }
+  label { color: var(--muted); font-size: .85rem; }
+  #amount {
+    width: 100%; background: none; border: none; outline: none;
+    color: var(--text); font-size: 2.4rem; font-weight: 600;
+    padding: 6px 0 12px; font-variant-numeric: tabular-nums;
+  }
+  .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .seg button {
+    background: #141a1f; color: var(--muted); border: 1px solid #2c353e;
+    border-radius: 12px; padding: 10px 0; font-size: 1rem; font-weight: 600;
+  }
+  .seg button.on { background: var(--accent); color: #0b1a15; border-color: var(--accent); }
+
+  .rows { display: flex; flex-direction: column; gap: 10px; }
+  .row {
+    display: flex; align-items: center; gap: 14px;
+    background: var(--card); border-radius: 16px; padding: 16px;
+  }
+  .row.src { background: var(--card-active); outline: 1px solid var(--accent); }
+  .flag { font-size: 1.8rem; line-height: 1; }
+  .meta { flex: 1; min-width: 0; }
+  .code { font-weight: 600; }
+  .name { color: var(--muted); font-size: .8rem; }
+  .val {
+    font-size: 1.35rem; font-weight: 600; text-align: right;
+    font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+  }
+
+  .rates { margin-top: 18px; color: var(--muted); font-size: .85rem; line-height: 1.6; }
+  #status { margin-top: auto; padding-top: 16px; color: var(--muted); font-size: .8rem; text-align: center; }
+  #status.err { color: var(--error); }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Change</h1>
+    <button id="refresh" type="button">↻ Actualiser</button>
+  </header>
+
+  <div class="input-wrap">
+    <label for="amount">Montant</label>
+    <input id="amount" type="text" inputmode="decimal" autocomplete="off" value="1">
+    <div class="seg" id="seg">
+      <button type="button" data-cur="EUR">EUR</button>
+      <button type="button" data-cur="USD">USD</button>
+      <button type="button" data-cur="PYG">PYG</button>
+    </div>
+  </div>
+
+  <div class="rows" id="rows"></div>
+  <div class="rates" id="rates"></div>
+  <div id="status">Chargement des taux…</div>
+
+<script>
+const CURRENCIES = {
+  EUR: { flag: "🇪🇺", name: "Euro", decimals: 2 },
+  USD: { flag: "🇺🇸", name: "Dollar américain", decimals: 2 },
+  PYG: { flag: "🇵🇾", name: "Guaraní paraguayen", decimals: 0 },
+};
+const API = "https://open.er-api.com/v6/latest/EUR";
+const CACHE_KEY = "rates-v1";
+const PREF_KEY = "source-cur";
+
+// rates : valeur de 1 EUR dans chaque devise
+let rates = null;
+let updatedAt = null;
+let source = load(PREF_KEY) || "EUR";
+
+const $amount = document.getElementById("amount");
+const $rows = document.getElementById("rows");
+const $rates = document.getElementById("rates");
+const $status = document.getElementById("status");
+const $seg = document.getElementById("seg");
+
+function load(key) { try { return localStorage.getItem(key); } catch { return null; } }
+function save(key, v) { try { localStorage.setItem(key, v); } catch {} }
+
+function fmt(n, cur) {
+  const d = CURRENCIES[cur].decimals;
+  return new Intl.NumberFormat("fr-FR", { minimumFractionDigits: d, maximumFractionDigits: d }).format(n);
+}
+
+function parseAmount() {
+  const raw = $amount.value.replace(/\s/g, "").replace(",", ".");
+  const n = parseFloat(raw);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function render() {
+  $seg.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.cur === source));
+  if (!rates) { $rows.innerHTML = ""; $rates.textContent = ""; return; }
+
+  const inEur = parseAmount() / rates[source];
+  $rows.innerHTML = Object.keys(CURRENCIES).map(cur => {
+    const c = CURRENCIES[cur];
+    return `<div class="row${cur === source ? " src" : ""}">
+      <span class="flag">${c.flag}</span>
+      <div class="meta"><div class="code">${cur}</div><div class="name">${c.name}</div></div>
+      <div class="val">${fmt(inEur * rates[cur], cur)}</div>
+    </div>`;
+  }).join("");
+
+  const eurUsd = rates.USD;
+  const eurPyg = rates.PYG;
+  $rates.innerHTML =
+    `1 EUR = ${eurUsd.toFixed(4).replace(".", ",")} USD<br>` +
+    `1 EUR = ${fmt(eurPyg, "PYG")} PYG<br>` +
+    `1 USD = ${fmt(eurPyg / eurUsd, "PYG")} PYG`;
+}
+
+function showStatus() {
+  if (!updatedAt) return;
+  const d = new Date(updatedAt);
+  $status.className = "";
+  $status.textContent = "Taux du " + d.toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" });
+}
+
+async function fetchRates() {
+  $status.className = "";
+  $status.textContent = "Actualisation…";
+  try {
+    const res = await fetch(API, { cache: "no-store" });
+    const j = await res.json();
+    if (j.result !== "success") throw new Error("réponse invalide");
+    rates = { EUR: 1, USD: j.rates.USD, PYG: j.rates.PYG };
+    updatedAt = j.time_last_update_unix * 1000;
+    save(CACHE_KEY, JSON.stringify({ rates, updatedAt }));
+    render();
+    showStatus();
+  } catch (e) {
+    if (rates) {
+      showStatus();
+      $status.textContent += " — hors ligne";
+    } else {
+      $status.className = "err";
+      $status.textContent = "Impossible de charger les taux. Vérifiez la connexion.";
+    }
+  }
+}
+
+$amount.addEventListener("input", render);
+$amount.addEventListener("focus", () => $amount.select());
+$seg.addEventListener("click", e => {
+  const cur = e.target.dataset && e.target.dataset.cur;
+  if (!cur) return;
+  source = cur;
+  save(PREF_KEY, cur);
+  render();
+});
+document.getElementById("refresh").addEventListener("click", fetchRates);
+
+// Démarrage : afficher le cache immédiatement, puis actualiser
+try {
+  const cached = JSON.parse(load(CACHE_KEY));
+  if (cached) { rates = cached.rates; updatedAt = cached.updatedAt; showStatus(); }
+} catch {}
+render();
+fetchRates();
+
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+</script>
+</body>
+</html>
